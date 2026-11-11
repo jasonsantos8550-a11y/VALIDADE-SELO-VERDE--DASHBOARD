@@ -1,0 +1,390 @@
+<!-- ... existing code ... -->
+            <div class="flex items-center gap-3">
+                <button onclick="exportCSV()" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-file-csv text-eco-300"></i> Exportar Relatório
+                </button>
+                <div id="cloudStatus" class="bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2" title="Sincronizado na nuvem">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Nuvem Conectada
+                </div>
+            </div>
+        </div>
+    </header>
+<!-- ... existing code ... -->
+    <!-- JavaScript Principal com Firebase Cloud Firestore Integration -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuração e Inicialização Firebase
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'trans-nogueira-selo-verde';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "demo-key",
+            authDomain: "demo.firebaseapp.com",
+            projectId: "demo-project",
+            storageBucket: "demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:123456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Dados Iniciais do PDF Trans Nogueira
+        const initialVehiclesData = [
+            { placa: "SCAMAST", marca: "SCANIA", modelo: "G410 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "BQU6857", marca: "SCANIA", modelo: "G410 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "BSX7E03", marca: "SCANIA", modelo: "R450 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/03/2026" },
+            { placa: "BZA0F49", marca: "SCANIA", modelo: "G410 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "DBL5A59", marca: "MERCEDES-BENZ", modelo: "ATEGO 2430", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "DEU9840", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "DGY5E31", marca: "SCANIA", modelo: "G420 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "DHW6G75", marca: "SCANIA", modelo: "G360 A4X2", validade: "31/12/2026", status: "OK", atualizacao: "16/01/2026" },
+            { placa: "DPF9825", marca: "SCANIA", modelo: "G410 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "EBM4F39", marca: "SCANIA", modelo: "G410 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "ECW1G97", marca: "SCANIA", modelo: "G410 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "ESW5D17", marca: "MERCEDES-BENZ", modelo: "ATEGO 2426", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "EWD1E37", marca: "VOLKSWAGEN", modelo: "24.280 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "EXN7F98", marca: "SCANIA", modelo: "G410 A4X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "EXN9H47", marca: "VOLKSWAGEN", modelo: "24.280 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FBP9001", marca: "SCANIA", modelo: "P360 4X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FKB9891", marca: "SCANIA", modelo: "P360 4X2", validade: "31/12/2026", status: "OK", atualizacao: "28/02/2026" },
+            { placa: "FNV5G15", marca: "VOLKSWAGEN", modelo: "24.280 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FPI5J17", marca: "VOLKSWAGEN", modelo: "24.280 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FSY7C13", marca: "SCANIA", modelo: "G440 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "16/01/2026" },
+            { placa: "FUF7A62", marca: "SCANIA", modelo: "R460 A6X2", validade: "NÃO AFERIDO", status: "NÃO AFERIDO", atualizacao: "-" },
+            { placa: "FUR6D41", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FUS4H08", marca: "SCANIA", modelo: "G410 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FWB4A95", marca: "SCANIA", modelo: "G410 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FXP4H16", marca: "VOLKSWAGEN", modelo: "24.280 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "FZH1E35", marca: "VOLKSWAGEN", modelo: "24.310 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "GAISG55", marca: "SCANIA", modelo: "G420 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "GDV6I73", marca: "SCANIA", modelo: "G400 A4X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "SVE3195", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "5VY8E65", marca: "VOLKSWAGEN", modelo: "24.320 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "SWK3C63", marca: "VOLKSWAGEN", modelo: "24.330 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "TLX6J15", marca: "SCANIA", modelo: "R450 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "TKM2C57", marca: "SCANIA", modelo: "R450 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "SV14136", marca: "SCANIA", modelo: "R410 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "TKM1F36", marca: "VOLKSWAGEN", modelo: "VW 25.390 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "28/02/2026" },
+            { placa: "FVA9J72", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "TKM0E43", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "EXW3A62", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "28/02/2026" },
+            { placa: "TKY3C74", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "TKX0H34", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "28/02/2026" },
+            { placa: "TKR8G69", marca: "VOLKSWAGEN", modelo: "VW 26.320 CRM 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "TRIDE75", marca: "SCANIA", modelo: "R450 6X2", validade: "NÃO AFERIDO", status: "NÃO AFERIDO", atualizacao: "-" },
+            { placa: "TKG2E36", marca: "SCANIA", modelo: "R460 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "TKZ2H63", marca: "SCANIA", modelo: "G420 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "QSP6J02", marca: "SCANIA", modelo: "R450 A6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "UPK5859", marca: "VOLKSWAGEN", modelo: "24.280 6X2", validade: "NÃO AFERIDO", status: "NÃO AFERIDO", atualizacao: "-" },
+            { placa: "UPS3B55", marca: "SCANIA", modelo: "G410 6X2", validade: "31/12/2026", status: "OK", atualizacao: "04/07/2026" },
+            { placa: "LOK9H97", marca: "SCANIA", modelo: "P360 4X2", validade: "NÃO AFERIDO", status: "NÃO AFERIDO", atualizacao: "-" },
+            { placa: "URXIU94", marca: "SCANIA", modelo: "R450 6X2", validade: "NÃO AFERIDO", status: "NÃO AFERIDO", atualizacao: "-" },
+            { placa: "UPX5039", marca: "VOLKSWAGEN", modelo: "24.320 CRM 6X2", validade: "NÃO AFERIDO", status: "NÃO AFERIDO", atualizacao: "-" },
+            { placa: "UGE1031", marca: "VOLKSWAGEN", modelo: "24.280 CRM 6X2", validade: "NÃO AFERIDO", status: "NÃO AFERIDO", atualizacao: "-" }
+        ];
+
+        let vehicles = [];
+        let statusChart = null;
+
+        // Inicialização com Firebase Auth e Realtime Listener
+        window.addEventListener('load', async () => {
+            setTodayDateInAddForm();
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Caminho restrito de dados públicos
+                const vehiclesCollection = collection(db, 'artifacts', appId, 'public', 'data', 'vehicles');
+
+                // Listener em Tempo Real (onSnapshot)
+                onSnapshot(vehiclesCollection, async (snapshot) => {
+                    if (snapshot.empty) {
+                        // Se o banco estiver vazio, popula pela primeira vez com os veículos iniciais
+                        const batch = writeBatch(db);
+                        initialVehiclesData.forEach(v => {
+                            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'vehicles', v.placa);
+                            batch.set(docRef, v);
+                        });
+                        await batch.commit();
+                    } else {
+                        vehicles = [];
+                        snapshot.forEach(docSnap => {
+                            vehicles.push(docSnap.data());
+                        });
+                        renderDashboard();
+                    }
+                }, (error) => {
+                    console.error("Erro na sincronização:", error);
+                    // Fallback para os dados locais se houver erro de rede
+                    if (vehicles.length === 0) {
+                        vehicles = [...initialVehiclesData];
+                        renderDashboard();
+                    }
+                });
+
+            } catch (err) {
+                console.error("Erro na autenticação:", err);
+                vehicles = [...initialVehiclesData];
+                renderDashboard();
+            }
+        });
+
+        // Salvar veiculo no Firestore em tempo real
+        window.saveVehicleChanges = async function(event) {
+            event.preventDefault();
+            const placa = document.getElementById('edit-placa').value.toUpperCase();
+            const marca = document.getElementById('edit-marca').value.toUpperCase();
+            const modelo = document.getElementById('edit-modelo').value.toUpperCase();
+            const status = document.getElementById('edit-status').value;
+            const validade = document.getElementById('edit-validade').value;
+            const atualizacao = document.getElementById('edit-atualizacao').value;
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'vehicles', placa);
+                await setDoc(docRef, { placa, marca, modelo, status, validade, atualizacao });
+                closeModal();
+                showNotification(`Veículo ${placa} atualizado com sucesso! Sincronizado na nuvem.`);
+            } catch (err) {
+                console.error("Erro ao salvar:", err);
+                showNotification("Erro ao salvar dados na nuvem.", "error");
+            }
+        };
+
+        window.addNewVehicle = async function(event) {
+            event.preventDefault();
+            const placa = document.getElementById('new-placa').value.toUpperCase();
+            const marca = document.getElementById('new-marca').value.toUpperCase();
+            const modelo = document.getElementById('new-modelo').value.toUpperCase();
+            const status = document.getElementById('new-status').value;
+            const validade = document.getElementById('new-validade').value;
+            const atualizacao = document.getElementById('new-atualizacao').value;
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'vehicles', placa);
+                await setDoc(docRef, { placa, marca, modelo, status, validade, atualizacao });
+                closeAddModal();
+                document.getElementById('form-add-vehicle').reset();
+                setTodayDateInAddForm();
+                showNotification(`Veículo ${placa} cadastrado com sucesso!`);
+            } catch (err) {
+                console.error("Erro ao cadastrar:", err);
+                showNotification("Erro ao cadastrar veículo.", "error");
+            }
+        };
+
+        window.openEditModal = function(placa) {
+            const vehicle = vehicles.find(v => v.placa === placa);
+            if (!vehicle) return;
+
+            document.getElementById('edit-placa').value = vehicle.placa;
+            document.getElementById('edit-marca').value = vehicle.marca || '';
+            document.getElementById('edit-modelo').value = vehicle.modelo || '';
+            document.getElementById('edit-status').value = vehicle.status || 'OK';
+            document.getElementById('edit-validade').value = vehicle.validade || '31/12/2026';
+            document.getElementById('edit-atualizacao').value = vehicle.atualizacao || new Date().toLocaleDateString('pt-BR');
+
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editModal').classList.add('flex');
+        };
+
+        window.closeModal = function() {
+            document.getElementById('editModal').classList.remove('flex');
+            document.getElementById('editModal').classList.add('hidden');
+        };
+
+        window.openAddModal = function() {
+            document.getElementById('addModal').classList.remove('hidden');
+            document.getElementById('addModal').classList.add('flex');
+        };
+
+        window.closeAddModal = function() {
+            document.getElementById('addModal').classList.remove('flex');
+            document.getElementById('addModal').classList.add('hidden');
+        };
+
+        function setTodayDateInAddForm() {
+            const today = new Date().toLocaleDateString('pt-BR');
+            const el = document.getElementById('new-atualizacao');
+            if (el) el.value = today;
+        }
+
+        window.filterTable = function() {
+            renderDashboard();
+        };
+
+        window.filterByStatus = function(status) {
+            document.getElementById('statusFilter').value = status;
+            renderDashboard();
+        };
+
+        function initChart() {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Aprovados (OK)', 'Reprovados (NOK)', 'Não Aferidos'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#2d6a4f', '#d9ed92', '#e07a5f'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return ` ${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function renderDashboard() {
+            let okCount = 0;
+            let nokCount = 0;
+            let pendenteCount = 0;
+
+            vehicles.forEach(v => {
+                const st = (v.status || '').toUpperCase();
+                if (st === 'OK') okCount++;
+                else if (st === 'NOK') nokCount++;
+                else pendenteCount++;
+            });
+
+            const total = vehicles.length;
+            const okPercentage = total > 0 ? ((okCount / total) * 100).toFixed(1) : 0;
+
+            document.getElementById('kpi-total').innerText = total;
+            document.getElementById('kpi-ok').innerText = okCount;
+            document.getElementById('kpi-nok').innerText = nokCount;
+            document.getElementById('kpi-pendente').innerText = pendenteCount;
+            document.getElementById('kpi-rate').innerText = `${okPercentage}%`;
+            document.getElementById('kpi-rate-bar').style.width = `${okPercentage}%`;
+
+            if (!statusChart) {
+                initChart();
+            }
+
+            if (statusChart) {
+                statusChart.data.datasets[0].data = [okCount, nokCount, pendenteCount];
+                statusChart.update();
+            }
+
+            const legendContainer = document.getElementById('chart-legend');
+            legendContainer.innerHTML = `
+                <div class="flex items-center justify-between text-sm"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-700"></span> Aprovados (OK)</span><span class="font-bold text-gray-700">${okCount}</span></div>
+                <div class="flex items-center justify-between text-sm"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-eco-300"></span> Reprovados (NOK)</span><span class="font-bold text-gray-700">${nokCount}</span></div>
+                <div class="flex items-center justify-between text-sm"><span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-600"></span> Não Aferidos</span><span class="font-bold text-gray-700">${pendenteCount}</span></div>
+            `;
+
+            const searchInput = (document.getElementById('searchInput').value || '').toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            const filteredVehicles = vehicles.filter(v => {
+                const matchesSearch = v.placa.toLowerCase().includes(searchInput) || 
+                                      (v.marca && v.marca.toLowerCase().includes(searchInput)) || 
+                                      (v.modelo && v.modelo.toLowerCase().includes(searchInput));
+                
+                const st = (v.status || '').toUpperCase();
+                let matchesStatus = true;
+                if (statusFilter === 'OK') matchesStatus = (st === 'OK');
+                else if (statusFilter === 'NOK') matchesStatus = (st === 'NOK');
+                else if (statusFilter === 'PENDENTE') matchesStatus = (st !== 'OK' && st !== 'NOK');
+
+                return matchesSearch && matchesStatus;
+            });
+
+            const tbody = document.getElementById('vehiclesTableBody');
+            tbody.innerHTML = '';
+
+            if (filteredVehicles.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Nenhum veículo encontrado com os filtros atuais.</td></tr>`;
+                return;
+            }
+
+            filteredVehicles.forEach(v => {
+                const st = (v.status || '').toUpperCase();
+                let badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+                let badgeText = v.status || 'NÃO AFERIDO';
+
+                if (st === 'OK') {
+                    badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                    badgeText = 'OK';
+                } else if (st === 'NOK') {
+                    badgeClass = 'bg-rose-100 text-rose-800 border-rose-300';
+                    badgeText = 'NOK';
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-eco-50/50 transition border-b border-gray-100';
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap font-mono font-bold text-gray-800">${v.placa}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${v.marca || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${v.modelo || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">${v.validade || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${badgeClass}">
+                            ${badgeText}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${v.atualizacao || '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="openEditModal('${v.placa}')" class="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition border border-emerald-200">
+                            <i class="fa-solid fa-pen-to-square mr-1"></i> Aferir / Editar
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.exportCSV = function() {
+            let csv = 'PLACA;MARCA;MODELO;VALIDADE SELO VERDE;STATUS;ATUALIZACAO DO VENCIMENTO\n';
+            vehicles.forEach(v => {
+                csv += `${v.placa};${v.marca || ''};${v.modelo || ''};${v.validade || ''};${v.status || ''};${v.atualizacao || ''}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'trans_nogueira_selo_verde_2026.csv';
+            link.click();
+        };
+
+        function showNotification(message, type = 'success') {
+            const notif = document.createElement('div');
+            notif.className = `fixed bottom-5 right-5 z-50 px-6 py-3 rounded-xl shadow-lg text-white text-sm font-medium transition transform translate-y-2 opacity-0 flex items-center gap-3 ${type === 'success' ? 'bg-emerald-800 border border-emerald-600' : 'bg-red-700'}`;
+            notif.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check text-emerald-300' : 'fa-circle-exclamation'}"></i> ${message}`;
+            document.body.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.classList.remove('translate-y-2', 'opacity-0');
+            }, 50);
+
+            setTimeout(() => {
+                notif.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => notif.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
